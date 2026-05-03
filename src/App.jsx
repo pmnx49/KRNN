@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const RENDER_HOST = 'localhost:3000';
-
 // SVG Кошачья лапка
 const PawIcon = ({ color, size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
@@ -26,14 +24,8 @@ function App() {
   const [sortOrder, setSortOrder] = useState('new');
   const [zoomImg, setZoomImg] = useState(null);
 
-  const getBaseUrl = () => {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') return `http://localhost:3000`;
-    return `https://${RENDER_HOST}`;
-  };
- // Пока что поставь ссылку-заглушку. 
-// Когда загрузишь сервер на Render, вставишь сюда реальную ссылку, которую он тебе даст!
-const SERVER_URL = 'https://krnn.onrender.com';
+  // Ссылка на твой сервер Render
+  const SERVER_URL = 'https://krnn.onrender.com';
 
   const [settings, setSettings] = useState({
     name: 'NONA', avatar: '', bg: '#050505', accent: '#ff2d55', 
@@ -58,17 +50,23 @@ const SERVER_URL = 'https://krnn.onrender.com';
       if (data.settings) setSettings(data.settings);
       setLikedFiles(data.likes || []);
       setArchivedFiles(data.archive || []);
+      
       let allFiles = data.files || [];
-      allFiles.sort((a, b) => (sortOrder === 'new' ? parseInt(b) - parseInt(a) : parseInt(a) - parseInt(b)));
+      
+      // ИСПРАВЛЕНО: Сортируем объекты по их ID (времени создания)
+      allFiles.sort((a, b) => (sortOrder === 'new' ? b.id - a.id : a.id - b.id));
+      
       const grouped = [];
       allFiles.forEach(f => {
-        const ts = parseInt(f);
+        const ts = f.id; // f теперь объект, берем его id
         const last = grouped[grouped.length - 1];
         if (last && Math.abs(last.time - ts) < 2000) last.items.push(f);
         else grouped.push({ time: ts, items: [f] });
       });
       setPosts(grouped);
-    } catch { console.log('Connect error'); }
+    } catch { 
+      console.log('Connect error'); 
+    }
   };
 
   useEffect(() => { if (role) fetchData(); }, [role, sortOrder]);
@@ -88,17 +86,15 @@ const SERVER_URL = 'https://krnn.onrender.com';
     });
   };
 
-  const toggleAction = async (f, action) => {
-    // Оптимистичное обновление для мгновенной реакции
+  const toggleAction = async (fileName, action) => {
     if (action === 'toggle-archive') {
-       setArchivedFiles(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+       setArchivedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
     }
-    
     try {
       const res = await fetch(`${SERVER_URL}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: f })
+        body: JSON.stringify({ fileName: fileName })
       });
       const data = await res.json();
       if (action === 'toggle-like') setLikedFiles(data);
@@ -107,37 +103,41 @@ const SERVER_URL = 'https://krnn.onrender.com';
     } catch (e) { console.error(e); }
   };
 
+  // ИСПРАВЛЕНО: Функция загрузки с лапки
   const handleUpload = async (e) => {
-  setLoading(true);
-  const fd = new FormData();
-  
-  // ИСПРАВЛЕНО: 'file' без буквы 's' на конце!
-  for (let f of e.target.files) fd.append('file', f); 
-
-  try {
-    const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
+    if (!e.target.files || e.target.files.length === 0) return;
+    setLoading(true);
+    const fd = new FormData();
     
-    // ИСПРАВЛЕНО: читаем как текст, а не как json!
-    const resultText = await res.text(); 
-    console.log("Ответ от сервера:", resultText);
+    // Передаем файл правильно
+    for (let f of e.target.files) fd.append('file', f); 
 
-    fetchData(); // Обновляем данные на сайте
-  } catch (error) {
-    console.error("Сбой при отправке фото:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
+      if (res.ok) {
+        fetchData(); // Обновляем экран сразу после загрузки
+      }
+    } catch (error) {
+      console.error("Сбой при отправке фото:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const getFileType = (file) => {
-    const ext = file.split('.').pop().toLowerCase();
+  // ИСПРАВЛЕНО: Определение типа файла из объекта
+  const getFileType = (fileObj) => {
+    if (fileObj.type && fileObj.type.startsWith('video')) return 'video';
+    if (fileObj.type && fileObj.type.startsWith('audio')) return 'audio';
+    
+    const ext = fileObj.name ? fileObj.name.split('.').pop().toLowerCase() : '';
     if (['mp4', 'webm', 'mov'].includes(ext)) return 'video';
     if (['mp3', 'wav', 'm4a'].includes(ext)) return 'audio';
     return 'photo';
   };
 
+  // ИСПРАВЛЕНО: Чтение прямой ссылки на медиа
   const MediaItem = ({ file }) => {
-    const url = `${SERVER_URL}/uploads/${file}`;
+    const url = file.url; // Сервер теперь сам дает полную ссылку
     const type = getFileType(file);
     if (type === 'video') return <video src={url} controls className="m-el" playsInline />;
     if (type === 'audio') return <div className="a-box"><audio src={url} controls /></div>;
@@ -211,8 +211,9 @@ const SERVER_URL = 'https://krnn.onrender.com';
         {loading && <div className="status-msg" style={{color: settings.accent}}>UPLOADING...</div>}
         {posts.map((post, idx) => {
           let items = post.items.filter(f => {
-            const isLiked = likedFiles.includes(f);
-            const isArchived = archivedFiles.includes(f);
+            // ИСПРАВЛЕНО: Сравниваем по имени файла
+            const isLiked = likedFiles.includes(f.name);
+            const isArchived = archivedFiles.includes(f.name);
             if (viewMode === 'archive') return isArchived;
             if (isArchived) return false;
             if (viewMode === 'favorites') return isLiked && (favFilter === 'all' || getFileType(f) === favFilter);
@@ -229,11 +230,11 @@ const SERVER_URL = 'https://krnn.onrender.com';
                     <MediaItem file={file} />
                     {role === 'admin' && (
                       <div className="floating-actions">
-                         <div className={`action-paw ${likedFiles.includes(file) ? 'active' : ''}`} onClick={() => toggleAction(file, 'toggle-like')}>
-                            <PawIcon color={likedFiles.includes(file) ? settings.accent : '#fff'} size={28} />
+                         <div className={`action-paw ${likedFiles.includes(file.name) ? 'active' : ''}`} onClick={() => toggleAction(file.name, 'toggle-like')}>
+                            <PawIcon color={likedFiles.includes(file.name) ? settings.accent : '#fff'} size={28} />
                          </div>
-                         <div className="action-trash" onClick={() => toggleAction(file, 'toggle-archive')} style={{ background: archivedFiles.includes(file) ? settings.accent : 'rgba(0,0,0,0.5)' }}>
-                           {archivedFiles.includes(file) ? '♻️' : '🗑️'}
+                         <div className="action-trash" onClick={() => toggleAction(file.name, 'toggle-archive')} style={{ background: archivedFiles.includes(file.name) ? settings.accent : 'rgba(0,0,0,0.5)' }}>
+                           {archivedFiles.includes(file.name) ? '♻️' : '🗑️'}
                          </div>
                       </div>
                     )}
