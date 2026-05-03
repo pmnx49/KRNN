@@ -144,7 +144,7 @@ function App() {
             <div className="pill-btn" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${settings.accent}`, color: settings.accent }}>{sortOrder}</div>
             {role === 'admin' && (
               <label className="circle-btn" style={{ background: settings.accent }}>
-                + <input type="file" multiple onChange={handleUpload} hidden />
+                 <input type="file" multiple onChange={handleUpload} hidden />
               </label>
             )}
             <div className="circle-btn" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${settings.accent}`, backgroundImage: `url(${settings.avatar})`, backgroundSize:'cover' }}>{!settings.avatar && '⚙️'}</div>
