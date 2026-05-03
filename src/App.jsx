@@ -187,7 +187,8 @@ function App() {
                 {items.map((file, i) => (
                   <div key={i} className="slide">
                     <MediaItem file={file} />
-                    {(role === 'admin' || role === 'friend') && (
+                    {/* ЛАЙКИ ТЕПЕРЬ ТОЛЬКО ДЛЯ АДМИНА */}
+                    {role === 'admin' && (
                       <div className={`like ${likedFiles.includes(file) ? 'active' : ''}`} onClick={() => toggleLike(file)} style={{ color: likedFiles.includes(file) ? user.accent : '#fff' }}>
                         {likedFiles.includes(file) ? '❤️' : '🤍'}
                       </div>
@@ -223,58 +224,43 @@ function App() {
 const CSS = (u) => `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: 0.2s; }
   body { margin: 0; background: #000; font-family: -apple-system, system-ui, sans-serif; color: #fff; overflow: hidden; }
-  
   .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
-  
   .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  
   .navbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; }
   .nav-right { display: flex; gap: 8px; align-items: center; }
-  
   .logo { font-size: 20px; cursor: pointer; }
   .pill { font-size: 9px; padding: 5px 10px; border-radius: 10px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
   .prof { width: 34px; height: 34px; border-radius: 10px; background: #111; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
   .add { padding: 8px 14px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
-
   .tabs { display: flex; }
   .tabs div { flex: 1; padding: 14px; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }
-
   .fav-filters { display: flex; gap: 8px; padding: 12px 15px; overflow-x: auto; white-space: nowrap; }
   .fav-filters span { padding: 6px 14px; border-radius: 18px; font-size: 9px; font-weight: bold; flex-shrink: 0; cursor: pointer; }
-
   .sakura-box { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   .petal { position: absolute; top: -100px; animation: fall linear infinite; }
   @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
-
   .feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
   .card { width: 94%; background: rgba(255,255,255,0.03); border-radius: 24px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(5px); }
   .card-top { padding: 12px 18px; font-size: 12px; font-weight: 600; }
-  
   .scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .slide { min-width: 100%; scroll-snap-align: start; position: relative; }
   .m-el { width: 100%; display: block; object-fit: cover; min-height: 250px; background: #000; cursor: pointer; }
-  
   .a-box { padding: 50px 20px; background: #050505; display: flex; justify-content: center; }
   audio { width: 100%; filter: invert(1) hue-rotate(180deg); opacity: 0.6; }
-
   .like { position: absolute; bottom: 20px; right: 20px; font-size: 26px; cursor: pointer; filter: drop-shadow(0 0 8px rgba(0,0,0,0.4)); }
-
   .login-page { justify-content: center; align-items: center; height: 100vh; }
   .login-card { width: 290px; padding: 35px; background: #000; border-radius: 28px; text-align: center; z-index: 10; backdrop-filter: blur(10px); }
   .login-card h1 { margin-bottom: 25px; font-size: 22px; letter-spacing: 2px; }
   .login-card input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; text-align: center; font-size: 16px; }
   .login-card button { width: 100%; padding: 12px; border: none; border-radius: 10px; color: #fff; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
   .guest { margin-top: 20px; font-size: 10px; opacity: 0.4; cursor: pointer; text-decoration: underline; }
-
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(15px); }
   .modal-card { background: #000; width: 85%; max-width: 300px; padding: 25px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; }
   .modal-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; font-size: 13px; }
   .colors { display: flex; justify-content: space-between; font-size: 11px; align-items: center; }
-
   .zoom { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
   .zoom img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  
   .loader { padding: 30px; font-size: 11px; font-weight: bold; letter-spacing: 3px; animation: pulse 1s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 `;
