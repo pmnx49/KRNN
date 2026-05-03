@@ -78,12 +78,44 @@ async function startServer() {
     });
 
     // Загрузка файла
-    app.post("/upload", upload.single("file"), async (req, res) => {
-      try {
-        if (!req.file) {
-          console.error("Файл не получен в запросе");
-          return res.status(400).send("No file uploaded.");
-        }
+  // В начале файла убедись, что multer настроен правильно
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); // Или твои настройки хранилища
+
+// ЗАМЕНИ СВОЙ МАРШРУТ НА ЭТОТ:
+app.post('/upload', upload.array('file', 20), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send('Файлы не выбраны');
+    }
+
+    // Здесь логика загрузки в Supabase для каждого файла
+    const uploadPromises = req.files.map(async (file) => {
+      // Твоя текущая логика загрузки в Supabase (supabase.storage.upload...)
+      // Важно: используй данные из каждого конкретного 'file'
+    });
+
+    await Promise.all(uploadPromises);
+    
+    res.status(200).json({ message: 'Все файлы успешно загружены' });
+  } catch (error) {
+    console.error('Ошибка сервера:', error);
+    res.status(500).send('Ошибка при загрузке');
+  }
+});
+
+// ДОБАВЬ ЭТОТ МАРШРУТ (для работы "лапки" и архива):
+app.post('/toggle', async (req, res) => {
+  const { fileName, action } = req.body;
+  try {
+    // Твоя логика обновления статуса в базе данных Supabase
+    // Например: supabase.from('files').update({ is_liked: true }).eq('name', fileName)
+    
+    res.status(200).send('Статус обновлен');
+  } catch (error) {
+    res.status(500).send('Ошибка обновления');
+  }
+});
 
         const filePath = req.file.path;
         const fileName = req.file.filename;
