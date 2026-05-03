@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 const RENDER_HOST = 'krn-0s8n.onrender.com'; 
-// ИСПОЛЬЗУЕМ СТАБИЛЬНУЮ ССЫЛКУ ИЛИ ТВОЮ (ЗАМЕНИ ЕСЛИ ЕСТЬ НОВАЯ ПРЯМАЯ ССЫЛКА)
-const PAW_ICON = 'https://img.icons8.com/papercut/60/pet-commands-summon.png'; 
+// Прямая ссылка на твою лапку
+const PAW_ICON = 'https://i.ibb.co/5g7WBL8J/image.png'; 
 
 function App() {
   const [role, setRole] = useState(null);
@@ -73,15 +73,18 @@ function App() {
   };
 
   const toggleAction = async (f, action) => {
-    const res = await fetch(`${SERVER_URL}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: f })
-    });
-    const data = await res.json();
-    if (action === 'toggle-like') setLikedFiles(data);
-    if (action === 'toggle-archive') setArchivedFiles(data);
-    fetchData();
+    // Исправлено: передаем действие в теле запроса
+    try {
+      const res = await fetch(`${SERVER_URL}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: f })
+      });
+      const data = await res.json();
+      if (action === 'toggle-like') setLikedFiles(data);
+      if (action === 'toggle-archive') setArchivedFiles(data);
+      fetchData();
+    } catch (e) { console.error("Action error", e); }
   };
 
   const handleUpload = async (e) => {
@@ -151,7 +154,7 @@ function App() {
             </div>
           )}
           {role === 'admin' && (
-             <div onClick={() => setViewMode('archive')} style={{ color: viewMode === 'archive' ? '#888' : '#333', borderBottom: viewMode === 'archive' ? `2px solid #888` : 'none' }}>ARCHIVE</div>
+             <div onClick={() => setViewMode('archive')} style={{ color: viewMode === 'archive' ? settings.accent : '#333', borderBottom: viewMode === 'archive' ? `2px solid ${settings.accent}` : 'none' }}>ARCHIVE</div>
           )}
         </div>
 
@@ -187,9 +190,11 @@ function App() {
                     {role === 'admin' && (
                       <div className="admin-actions">
                          <div className={`paw-container ${likedFiles.includes(file) ? 'active' : ''}`} onClick={() => toggleAction(file, 'toggle-like')}>
-                            <img src={PAW_ICON} className="paw-img" />
+                            <img src={PAW_ICON} className="paw-img" alt="paw" />
                          </div>
-                         <div className="arc-btn" onClick={() => toggleAction(file, 'toggle-archive')}>{archivedFiles.includes(file) ? '♻️' : '🗑️'}</div>
+                         <div className="arc-btn" onClick={() => toggleAction(file, 'toggle-archive')} style={{ background: archivedFiles.includes(file) ? settings.accent : 'rgba(0,0,0,0.5)' }}>
+                           {archivedFiles.includes(file) ? '♻️' : '🗑️'}
+                         </div>
                       </div>
                     )}
                   </div>
@@ -223,61 +228,59 @@ function App() {
 
 const CSS = (u) => `
   * { box-sizing: border-box; transition: 0.3s; }
-  body { margin: 0; background: #000; font-family: -apple-system, system-ui, sans-serif; color: #fff; overflow: hidden; }
+  body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow: hidden; }
   
   .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
 
-  /* ДИЗАЙН ВХОДА */
-  .login-page { justify-content: center; align-items: center; background-position: center; background-size: cover; }
-  .login-card { width: 90%; max-width: 320px; padding: 40px 30px; background: rgba(0,0,0,0.8); border-radius: 30px; text-align: center; backdrop-filter: blur(15px); }
-  .login-card h1 { margin: 0 0 30px; font-size: 24px; letter-spacing: 3px; font-weight: 900; }
-  .login-form { display: flex; flex-direction: column; gap: 15px; }
-  .login-card input { padding: 14px; border-radius: 12px; border: 1px solid #333; background: #000; color: #fff; text-align: center; font-size: 16px; }
-  .login-card button { padding: 14px; border: none; border-radius: 12px; color: #fff; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
-  .guest-btn { margin-top: 25px; font-size: 11px; opacity: 0.5; cursor: pointer; text-decoration: underline; }
+  .login-page { justify-content: center; align-items: center; }
+  .login-card { width: 85%; max-width: 300px; padding: 35px; background: rgba(0,0,0,0.85); border-radius: 25px; text-align: center; backdrop-filter: blur(15px); }
+  .login-card h1 { margin-bottom: 25px; font-size: 20px; letter-spacing: 2px; }
+  .login-form { display: flex; flex-direction: column; gap: 12px; }
+  .login-card input { padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; text-align: center; }
+  .login-card button { padding: 12px; border: none; border-radius: 10px; color: #fff; font-weight: bold; cursor: pointer; }
+  .guest-btn { margin-top: 20px; font-size: 10px; opacity: 0.5; cursor: pointer; }
 
-  /* ШАПКА И ВКЛАДКИ */
-  .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .navbar { display: flex; justify-content: space-between; padding: 12px 20px; align-items: center; }
-  .nav-right { display: flex; gap: 10px; }
-  .prof, .add { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .navbar { display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; }
+  .nav-right { display: flex; gap: 6px; }
+  
+  .prof, .add { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .pill { font-size: 9px; padding: 5px 8px; border-radius: 8px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+
   .tabs { display: flex; }
-  .tabs div { flex: 1; padding: 15px; text-align: center; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .tab-paw { width: 14px; height: 14px; }
+  .tabs div { flex: 1; padding: 12px; text-align: center; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .tab-paw { width: 12px; height: 12px; object-fit: contain; }
 
-  /* ЛЕНТА И КАРТОЧКИ */
-  .feed { flex: 1; padding: 20px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
-  .card { width: 94%; background: rgba(255,255,255,0.03); border-radius: 24px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(10px); }
-  .card-top { padding: 12px 18px; font-size: 12px; opacity: 0.7; }
+  .feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
+  .card { width: 94%; background: rgba(255,255,255,0.03); border-radius: 20px; overflow: hidden; margin-bottom: 20px; backdrop-filter: blur(10px); }
+  .card-top { padding: 10px 15px; font-size: 11px; opacity: 0.6; }
   .scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .slide { min-width: 100%; position: relative; scroll-snap-align: start; }
-  .m-el { width: 100%; display: block; min-height: 300px; object-fit: cover; }
+  .m-el { width: 100%; display: block; min-height: 250px; object-fit: cover; }
 
-  /* АНИМИРОВАННАЯ ЛАПКА */
-  .admin-actions { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 12px; align-items: center; }
-  .paw-container { width: 50px; height: 50px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-  .paw-img { width: 100%; height: 100%; filter: grayscale(1) brightness(0.5); transform: scale(0.9); transition: 0.3s; }
-  .active .paw-img { filter: grayscale(0) brightness(1.2); animation: paw-pulse 1.5s infinite ease-in-out; transform: scale(1.1); }
+  .admin-actions { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px; align-items: center; }
+  .paw-container { width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .paw-img { width: 100%; height: 100%; filter: grayscale(1) brightness(0.4); transition: 0.4s; }
+  .active .paw-img { filter: grayscale(0) brightness(1.1); animation: paw-pulse 1.4s infinite ease-in-out; }
   
   @keyframes paw-pulse {
-    0% { transform: scale(1); filter: drop-shadow(0 0 2px ${u.accent}); }
-    50% { transform: scale(1.2); filter: drop-shadow(0 0 10px ${u.accent}); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 2px ${u.accent}); }
+    0% { transform: scale(0.9); filter: drop-shadow(0 0 2px ${u.accent}); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 12px ${u.accent}); }
+    100% { transform: scale(0.9); filter: drop-shadow(0 0 2px ${u.accent}); }
   }
 
-  .arc-btn { background: rgba(0,0,0,0.5); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 18px; }
+  .arc-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 16px; transition: 0.3s; }
   
-  /* САКУРА */
   .sakura-box { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   .petal { position: absolute; top: -100px; animation: fall linear infinite; }
   @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
 
-  .fav-filters { display: flex; gap: 8px; padding: 12px 15px; overflow-x: auto; }
-  .fav-filters span { padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: bold; border: 1px solid; text-transform: uppercase; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-  .modal-card { background: #000; width: 300px; padding: 25px; border-radius: 25px; display: flex; flex-direction: column; gap: 15px; }
-  .modal-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; }
+  .fav-filters { display: flex; gap: 6px; padding: 10px; overflow-x: auto; }
+  .fav-filters span { padding: 5px 12px; border-radius: 15px; font-size: 9px; font-weight: bold; border: 1px solid; text-transform: uppercase; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+  .modal-card { background: #000; width: 300px; padding: 25px; border-radius: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .modal-card input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; }
   .zoom { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
   .zoom img { max-width: 100%; max-height: 100%; }
 `;
