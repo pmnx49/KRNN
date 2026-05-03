@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 
 const RENDER_HOST = 'krn-0s8n.onrender.com'; 
-// Прямая ссылка на твою лапку
-const PAW_ICON = 'https://i.ibb.co/5g7WBL8J/image.png'; 
+
+// SVG-иконка лапки (будет работать всегда без внешних ссылок)
+const PawIcon = ({ color }) => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="14.5" r="4.5" />
+    <circle cx="6.5" cy="9.5" r="2.5" />
+    <circle cx="10" cy="6.5" r="2.5" />
+    <circle cx="14" cy="6.5" r="2.5" />
+    <circle cx="17.5" cy="9.5" r="2.5" />
+  </svg>
+);
 
 function App() {
   const [role, setRole] = useState(null);
@@ -73,7 +82,6 @@ function App() {
   };
 
   const toggleAction = async (f, action) => {
-    // Исправлено: передаем действие в теле запроса
     try {
       const res = await fetch(`${SERVER_URL}/${action}`, {
         method: 'POST',
@@ -121,8 +129,8 @@ function App() {
       <div className="login-card" style={{ border: `2px solid ${settings.accent}` }}>
         <h1 style={{ color: settings.accent }}>KRN SYSTEM</h1>
         <div className="login-form">
-          <input type="password" placeholder="ENTER CODE" onChange={e => setPassInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-          <button style={{ background: settings.accent }} onClick={handleLogin}>INITIALIZE</button>
+          <input type="password" placeholder="CODE" onChange={e => setPassInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+          <button style={{ background: settings.accent }} onClick={handleLogin}>INIT</button>
         </div>
         <div className="guest-btn" onClick={() => setRole('guest')}>GUEST ACCESS</div>
       </div>
@@ -141,7 +149,10 @@ function App() {
             <div className="pill" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${settings.accent}`, color: settings.accent }}>{sortOrder}</div>
             <div className="prof" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${settings.accent}`, backgroundImage: `url(${settings.avatar})`, backgroundSize:'cover' }}>{!settings.avatar && '⚙️'}</div>
             {role === 'admin' && (
-              <label className="add" style={{ background: settings.accent }}>{viewMode === 'favorites' ? '🔒' : '+'}<input type="file" multiple onChange={handleUpload} hidden /></label>
+              <label className="add" style={{ background: settings.accent }}>
+                {viewMode === 'favorites' ? '🔒' : '+'}
+                <input type="file" multiple onChange={handleUpload} hidden />
+              </label>
             )}
           </div>
         </header>
@@ -150,7 +161,7 @@ function App() {
           <div onClick={() => setViewMode('all')} style={{ color: viewMode === 'all' ? settings.accent : '#555', borderBottom: viewMode === 'all' ? `2px solid ${settings.accent}` : 'none' }}>STREAM</div>
           {(role === 'admin' || role === 'friend') && (
             <div onClick={() => setViewMode('favorites')} style={{ color: viewMode === 'favorites' ? settings.accent : '#555', borderBottom: viewMode === 'favorites' ? `2px solid ${settings.accent}` : 'none' }}>
-               PRIVATE <img src={PAW_ICON} className="tab-paw" />
+               PRIVATE <div className="tab-paw-box"><PawIcon color={viewMode === 'favorites' ? settings.accent : '#555'} /></div>
             </div>
           )}
           {role === 'admin' && (
@@ -168,7 +179,7 @@ function App() {
       </div>
 
       <main className="feed">
-        {loading && <div className="loader" style={{color: settings.accent}}>PROCESSING...</div>}
+        {loading && <div className="loader" style={{color: settings.accent}}>UPLOADING...</div>}
         {posts.map((post, idx) => {
           let items = post.items.filter(f => {
             const isLiked = likedFiles.includes(f);
@@ -190,9 +201,9 @@ function App() {
                     {role === 'admin' && (
                       <div className="admin-actions">
                          <div className={`paw-container ${likedFiles.includes(file) ? 'active' : ''}`} onClick={() => toggleAction(file, 'toggle-like')}>
-                            <img src={PAW_ICON} className="paw-img" alt="paw" />
+                            <PawIcon color={likedFiles.includes(file) ? settings.accent : '#444'} />
                          </div>
-                         <div className="arc-btn" onClick={() => toggleAction(file, 'toggle-archive')} style={{ background: archivedFiles.includes(file) ? settings.accent : 'rgba(0,0,0,0.5)' }}>
+                         <div className="arc-btn" onClick={() => toggleAction(file, 'toggle-archive')} style={{ border: `1px solid ${settings.accent}` }}>
                            {archivedFiles.includes(file) ? '♻️' : '🗑️'}
                          </div>
                       </div>
@@ -208,15 +219,15 @@ function App() {
       {showSettings && role === 'admin' && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ border: `1px solid ${settings.accent}` }}>
-            <h3>SYSTEM CONTROL</h3>
-            <input type="text" placeholder="Admin Pass" value={settings.adminPass} onChange={e => setSettings({...settings, adminPass: e.target.value})} />
-            <input type="text" placeholder="Friend Pass" value={settings.friendPass} onChange={e => setSettings({...settings, friendPass: e.target.value})} />
+            <h3>SYSTEM</h3>
+            <input type="text" placeholder="Admin Code" value={settings.adminPass} onChange={e => setSettings({...settings, adminPass: e.target.value})} />
+            <input type="text" placeholder="Friend Code" value={settings.friendPass} onChange={e => setSettings({...settings, friendPass: e.target.value})} />
             <input type="text" placeholder="Wallpaper URL" value={settings.wallPaper} onChange={e => setSettings({...settings, wallPaper: e.target.value})} />
             <div className="colors">
               <label>Accent <input type="color" value={settings.accent} onChange={e => setSettings({...settings, accent: e.target.value})} /></label>
               <label>BG <input type="color" value={settings.bg} onChange={e => setSettings({...settings, bg: e.target.value})} /></label>
             </div>
-            <button style={{ background: settings.accent }} onClick={() => {saveGlobalSettings(settings); setShowSettings(false)}}>APPLY TO ALL</button>
+            <button style={{ background: settings.accent }} onClick={() => {saveGlobalSettings(settings); setShowSettings(false)}}>SAVE FOR ALL</button>
           </div>
         </div>
       )}
@@ -227,62 +238,59 @@ function App() {
 }
 
 const CSS = (u) => `
-  * { box-sizing: border-box; transition: 0.3s; }
+  * { box-sizing: border-box; transition: 0.3s; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow: hidden; }
   
   .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
 
   .login-page { justify-content: center; align-items: center; }
-  .login-card { width: 85%; max-width: 300px; padding: 35px; background: rgba(0,0,0,0.85); border-radius: 25px; text-align: center; backdrop-filter: blur(15px); }
-  .login-card h1 { margin-bottom: 25px; font-size: 20px; letter-spacing: 2px; }
-  .login-form { display: flex; flex-direction: column; gap: 12px; }
-  .login-card input { padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; text-align: center; }
-  .login-card button { padding: 12px; border: none; border-radius: 10px; color: #fff; font-weight: bold; cursor: pointer; }
-  .guest-btn { margin-top: 20px; font-size: 10px; opacity: 0.5; cursor: pointer; }
+  .login-card { width: 80%; max-width: 280px; padding: 30px; background: rgba(0,0,0,0.9); border-radius: 20px; text-align: center; backdrop-filter: blur(10px); }
+  .login-card h1 { margin-bottom: 20px; font-size: 18px; letter-spacing: 2px; }
+  .login-form { display: flex; gap: 8px; flex-direction: column; }
+  .login-card input { padding: 12px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; text-align: center; }
+  .login-card button { padding: 12px; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; }
 
-  .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .navbar { display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; }
-  .nav-right { display: flex; gap: 6px; }
+  .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); width: 100%; }
+  .navbar { display: flex; justify-content: space-between; padding: 8px 15px; align-items: center; }
+  .nav-right { display: flex; gap: 10px; align-items: center; }
   
-  .prof, .add { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-  .pill { font-size: 9px; padding: 5px 8px; border-radius: 8px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+  .prof { width: 32px; height: 32px; border-radius: 8px; background: #111; display: flex; align-items: center; justify-content: center; }
+  .add { padding: 6px 12px; border-radius: 8px; font-size: 16px; font-weight: bold; color: #fff; cursor: pointer; }
+  .pill { font-size: 8px; padding: 4px 8px; border-radius: 6px; font-weight: bold; text-transform: uppercase; }
 
-  .tabs { display: flex; }
+  .tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .tabs div { flex: 1; padding: 12px; text-align: center; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
-  .tab-paw { width: 12px; height: 12px; object-fit: contain; }
+  .tab-paw-box svg { width: 15px; height: 15px; }
 
   .feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
-  .card { width: 94%; background: rgba(255,255,255,0.03); border-radius: 20px; overflow: hidden; margin-bottom: 20px; backdrop-filter: blur(10px); }
-  .card-top { padding: 10px 15px; font-size: 11px; opacity: 0.6; }
+  .card { width: 94%; background: rgba(0,0,0,0.7); border-radius: 18px; overflow: hidden; margin-bottom: 20px; backdrop-filter: blur(10px); }
+  .card-top { padding: 10px 15px; font-size: 10px; opacity: 0.5; }
   .scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .slide { min-width: 100%; position: relative; scroll-snap-align: start; }
   .m-el { width: 100%; display: block; min-height: 250px; object-fit: cover; }
 
-  .admin-actions { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px; align-items: center; }
-  .paw-container { width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-  .paw-img { width: 100%; height: 100%; filter: grayscale(1) brightness(0.4); transition: 0.4s; }
-  .active .paw-img { filter: grayscale(0) brightness(1.1); animation: paw-pulse 1.4s infinite ease-in-out; }
+  .admin-actions { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 8px; align-items: center; }
+  .paw-container { cursor: pointer; }
+  .paw-container.active svg { animation: paw-pulse 1.5s infinite; filter: drop-shadow(0 0 5px ${u.accent}); }
   
   @keyframes paw-pulse {
-    0% { transform: scale(0.9); filter: drop-shadow(0 0 2px ${u.accent}); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 12px ${u.accent}); }
-    100% { transform: scale(0.9); filter: drop-shadow(0 0 2px ${u.accent}); }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
   }
 
-  .arc-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 16px; transition: 0.3s; }
+  .arc-btn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.6); cursor: pointer; font-size: 14px; }
   
   .sakura-box { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   .petal { position: absolute; top: -100px; animation: fall linear infinite; }
   @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
 
   .fav-filters { display: flex; gap: 6px; padding: 10px; overflow-x: auto; }
-  .fav-filters span { padding: 5px 12px; border-radius: 15px; font-size: 9px; font-weight: bold; border: 1px solid; text-transform: uppercase; }
+  .fav-filters span { padding: 4px 10px; border-radius: 12px; font-size: 8px; font-weight: bold; border: 1px solid; text-transform: uppercase; }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; }
-  .modal-card { background: #000; width: 300px; padding: 25px; border-radius: 20px; display: flex; flex-direction: column; gap: 12px; }
-  .modal-card input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; }
-  .zoom { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
-  .zoom img { max-width: 100%; max-height: 100%; }
+  .modal-card { background: #000; width: 280px; padding: 25px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .modal-card input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #222; background: #000; color: #fff; font-size: 12px; }
 `;
 
 export default App;
