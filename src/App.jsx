@@ -33,7 +33,7 @@ function App() {
   };
  // Пока что поставь ссылку-заглушку. 
 // Когда загрузишь сервер на Render, вставишь сюда реальную ссылку, которую он тебе даст!
-const SERVER_URL = 'https://твой-будущий-сервер.onrender.com';
+const SERVER_URL = 'https://krnn.onrender.com';
 
   const [settings, setSettings] = useState({
     name: 'NONA', avatar: '', bg: '#050505', accent: '#ff2d55', 
