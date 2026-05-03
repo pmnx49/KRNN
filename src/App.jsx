@@ -24,7 +24,6 @@ function App() {
   const [sortOrder, setSortOrder] = useState('new');
   const [zoomImg, setZoomImg] = useState(null);
 
-  // Ссылка на твой сервер Render
   const SERVER_URL = 'https://krnn.onrender.com';
 
   const [settings, setSettings] = useState({
@@ -32,40 +31,42 @@ function App() {
     adminPass: 'Ll653211', friendPass: '777', wallPaper: ''
   });
 
-  // Анимированные лапки-лепестки
   const [paws] = useState(() =>
     [...Array(12)].map(() => ({
-      left: Math.random() * 100, 
-      delay: Math.random() * 10, 
-      duration: 8 + Math.random() * 10, 
-      size: 15 + Math.random() * 15,
+      left: Math.random() * 100, delay: Math.random() * 10, 
+      duration: 8 + Math.random() * 10, size: 15 + Math.random() * 15,
       rotate: Math.random() * 360
     }))
   );
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${SERVER_URL}/files`);
+      // ИСПРАВЛЕНО 1: Добавили ?t=... чтобы сбрасывать кэш браузера
+      const res = await fetch(`${SERVER_URL}/files?t=${Date.now()}`);
       const data = await res.json();
+      
       if (data.settings) setSettings(data.settings);
       setLikedFiles(data.likes || []);
       setArchivedFiles(data.archive || []);
       
-      let allFiles = data.files || [];
+      // ИСПРАВЛЕНО 2: Защита форматов
+      let rawFiles = Array.isArray(data) ? data : (data.files || []);
       
-      // ИСПРАВЛЕНО: Сортируем объекты по их ID (времени создания)
-      allFiles.sort((a, b) => (sortOrder === 'new' ? b.id - a.id : a.id - b.id));
+      // Оставляем только правильные новые файлы-объекты
+      let validFiles = rawFiles.filter(f => typeof f === 'object' && f !== null && f.id);
+      
+      validFiles.sort((a, b) => (sortOrder === 'new' ? b.id - a.id : a.id - b.id));
       
       const grouped = [];
-      allFiles.forEach(f => {
-        const ts = f.id; // f теперь объект, берем его id
+      validFiles.forEach(f => {
+        const ts = f.id; 
         const last = grouped[grouped.length - 1];
         if (last && Math.abs(last.time - ts) < 2000) last.items.push(f);
         else grouped.push({ time: ts, items: [f] });
       });
       setPosts(grouped);
-    } catch { 
-      console.log('Connect error'); 
+    } catch (e) { 
+      console.error('Ошибка соединения:', e); 
     }
   };
 
@@ -79,43 +80,31 @@ function App() {
 
   const saveGlobalSettings = async (newSettings) => {
     setSettings(newSettings);
-    await fetch(`${SERVER_URL}/update-settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSettings)
-    });
+    // Настройки пока сохраняются локально, так как сервер на Render
+    setShowSettings(false);
   };
 
   const toggleAction = async (fileName, action) => {
+    // Временно меняем визуально, так как сервер на Render пока не имеет этих команд
     if (action === 'toggle-archive') {
        setArchivedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
     }
-    try {
-      const res = await fetch(`${SERVER_URL}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: fileName })
-      });
-      const data = await res.json();
-      if (action === 'toggle-like') setLikedFiles(data);
-      if (action === 'toggle-archive') setArchivedFiles(data);
-      fetchData();
-    } catch (e) { console.error(e); }
+    if (action === 'toggle-like') {
+       setLikedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
+    }
   };
 
-  // ИСПРАВЛЕНО: Функция загрузки с лапки
   const handleUpload = async (e) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setLoading(true);
     const fd = new FormData();
     
-    // Передаем файл правильно
     for (let f of e.target.files) fd.append('file', f); 
 
     try {
       const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
       if (res.ok) {
-        fetchData(); // Обновляем экран сразу после загрузки
+        await fetchData(); // ИСПРАВЛЕНО: Ждем, пока лента обновится
       }
     } catch (error) {
       console.error("Сбой при отправке фото:", error);
@@ -124,20 +113,17 @@ function App() {
     }
   };
 
-  // ИСПРАВЛЕНО: Определение типа файла из объекта
   const getFileType = (fileObj) => {
     if (fileObj.type && fileObj.type.startsWith('video')) return 'video';
     if (fileObj.type && fileObj.type.startsWith('audio')) return 'audio';
-    
     const ext = fileObj.name ? fileObj.name.split('.').pop().toLowerCase() : '';
     if (['mp4', 'webm', 'mov'].includes(ext)) return 'video';
     if (['mp3', 'wav', 'm4a'].includes(ext)) return 'audio';
     return 'photo';
   };
 
-  // ИСПРАВЛЕНО: Чтение прямой ссылки на медиа
   const MediaItem = ({ file }) => {
-    const url = file.url; // Сервер теперь сам дает полную ссылку
+    const url = file.url; 
     const type = getFileType(file);
     if (type === 'video') return <video src={url} controls className="m-el" playsInline />;
     if (type === 'audio') return <div className="a-box"><audio src={url} controls /></div>;
@@ -211,7 +197,6 @@ function App() {
         {loading && <div className="status-msg" style={{color: settings.accent}}>UPLOADING...</div>}
         {posts.map((post, idx) => {
           let items = post.items.filter(f => {
-            // ИСПРАВЛЕНО: Сравниваем по имени файла
             const isLiked = likedFiles.includes(f.name);
             const isArchived = archivedFiles.includes(f.name);
             if (viewMode === 'archive') return isArchived;
@@ -272,62 +257,42 @@ const CSS = (u) => `
   body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow: hidden; }
   .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
-
-  /* АНИМАЦИЯ ПАДАЮЩИХ ЛАПОК */
   .paw-rain { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   .falling-paw { position: absolute; top: -50px; animation: fall-anim linear infinite; opacity: 0.6; }
-  @keyframes fall-anim { 
-    to { transform: translateY(110vh) rotate(360deg); } 
-  }
-
-  /* ВХОД */
+  @keyframes fall-anim { to { transform: translateY(110vh) rotate(360deg); } }
   .login-page { justify-content: center; align-items: center; }
   .login-card { width: 280px; padding: 35px; background: rgba(0,0,0,0.85); border-radius: 25px; text-align: center; backdrop-filter: blur(15px); z-index: 10; }
   .login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
   .login-card input { padding: 12px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; }
   .login-card button { padding: 12px; border-radius: 10px; color: #fff; font-weight: bold; border: none; cursor: pointer; }
   .guest-btn { margin-top: 20px; font-size: 10px; opacity: 0.5; text-decoration: underline; cursor: pointer; }
-
-  /* ШАПКА */
   .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .navbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; }
   .nav-controls { display: flex; gap: 10px; align-items: center; }
   .circle-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .pill-btn { font-size: 10px; padding: 6px 12px; border-radius: 20px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
-
-  /* ТАБЫ */
   .main-tabs { display: flex; width: 100%; }
   .main-tabs div { flex: 1; padding: 16px; text-align: center; font-size: 11px; font-weight: 900; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .main-tabs div.active { color: var(--clr); border-bottom: 2px solid var(--clr); }
-
-  /* ФИЛЬТРЫ */
   .filter-bar { display: flex; gap: 10px; padding: 12px 18px; overflow-x: auto; }
   .filter-bar span { padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: bold; border: 1px solid; text-transform: uppercase; flex-shrink: 0; }
-
-  /* ЛЕНТА */
   .content-feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
   .post-card { width: 94%; background: rgba(0,0,0,0.6); border-radius: 22px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(10px); }
   .card-user { padding: 12px 18px; font-size: 12px; opacity: 0.6; }
   .media-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .media-slide { min-width: 100%; position: relative; scroll-snap-align: start; }
   .m-el { width: 100%; display: block; min-height: 280px; object-fit: cover; }
-
-  /* КНОПКИ ВНУТРИ КАРТОЧКИ */
   .floating-actions { position: absolute; bottom: 18px; right: 18px; display: flex; gap: 12px; align-items: center; z-index: 10; }
   .action-paw { cursor: pointer; transition: 0.2s; }
   .action-paw.active { animation: paw-jump 1.5s infinite; filter: drop-shadow(0 0 8px ${u.accent}); }
   @keyframes paw-jump { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
   .action-trash { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.4); font-size: 16px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
-  
   .a-box { padding: 45px 20px; background: #080808; display: flex; justify-content: center; }
   audio { width: 90%; filter: invert(1) hue-rotate(180deg); opacity: 0.6; }
-
-  /* МОДАЛКА */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
   .modal { background: #000; width: 300px; padding: 25px; border-radius: 24px; display: flex; flex-direction: column; gap: 12px; }
   .modal input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; font-size: 13px; }
   .color-grid { display: flex; justify-content: space-between; font-size: 11px; align-items: center; }
-
   .zoom-view { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
   .zoom-view img { max-width: 100%; max-height: 100%; }
   .status-msg { padding: 20px; font-weight: bold; font-size: 11px; letter-spacing: 2px; }
