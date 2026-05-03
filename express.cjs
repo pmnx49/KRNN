@@ -1,21 +1,27 @@
 const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
 const cors = require("cors");
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 
 const app = express();
-app.use(cors()); 
+app.use(cors());
+app.use(express.json());
 
-// РЕШЕНИЕ ПРОБЛЕМЫ 2: Разрешаем сайту читать файлы из папки uploads
-app.use("/uploads", express.static("uploads"));
+// Раздача статики, чтобы сайт мог играть видео и музыку по прямым ссылкам
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// РЕШЕНИЕ ПРОБЛЕМЫ 1: Сохраняем оригинальные имена и расширения файлов (.jpg, .mp4)
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
+// Настройка хранения: сохраняем оригинальное имя с расширением
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
-    // Добавляем цифры ко времени, чтобы файлы с одинаковыми именами не заменяли друг друга
+    // Добавляем метку времени, чтобы файлы с одинаковым названием не перезаписывались
     cb(null, Date.now() + "-" + file.originalname);
   }
 });
@@ -31,66 +37,62 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 5,
 });
 
-const DB_FILE = "db.json";
+const getDB = () => {
+    if (!fs.existsSync("db.json")) return { files: [] };
+    try {
+        return JSON.parse(fs.readFileSync("db.json", "utf-8"));
+    } catch (e) { return { files: [] }; }
+};
+const saveDB = (data) => fs.writeFileSync("db.json", JSON.stringify(data, null, 2));
 
 async function startServer() {
   try {
-    console.log("Попытка авторизации бота...");
     await client.start({ botAuthToken: botToken });
-    console.log("--- БОТ АВТОРИЗОВАН УСПЕШНО ---");
+    console.log("--- KRN SYSTEM SERVER STARTED ---");
 
-    // ВОЗВРАЩАЕМ ВЫВОД ФАЙЛОВ ДЛЯ САЙТА (чтобы они рисовались в ленте)
     app.get("/files", (req, res) => {
-      try {
-        if (!fs.existsSync(DB_FILE)) {
-          fs.writeFileSync(DB_FILE, JSON.stringify({ files: [], likes: [], archive: [], settings: {} }));
-        }
-        const data = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-        res.json(data);
-      } catch (e) {
-        res.json({ files: [] });
-      }
+      const db = getDB();
+      res.json(db.files);
     });
 
-    // ОБНОВЛЕННАЯ ЗАГРУЗКА
     app.post("/upload", upload.single("file"), async (req, res) => {
       try {
-        if (!req.file) {
-            return res.status(400).send("Файл не был получен сервером.");
-        }
+        if (!req.file) return res.status(400).send("No file.");
 
         const filePath = req.file.path;
-        
-        // 1. Отправляем нормальный файл в Telegram
-        await client.sendFile(channelId, { file: filePath });
-        
-        // ВАЖНО: Мы убрали удаление файла, теперь он останется лежать для сайта!
+        const fileName = req.file.filename;
+        const originalName = req.file.originalname;
 
-        // 2. Сохраняем информацию о файле в базу данных сайта (db.json)
-        if (!fs.existsSync(DB_FILE)) {
-          fs.writeFileSync(DB_FILE, JSON.stringify({ files: [], likes: [], archive: [], settings: {} }));
-        }
-        const dbData = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+        // Отправка в Telegram. Библиотека сама поймет тип файла по расширению (.mp4, .mp3 и т.д.)
+        await client.sendFile(channelId, { 
+            file: filePath,
+            caption: `Загружено через KRN SYSTEM: ${originalName}`
+        });
+
+        // Сохраняем в базу для сайта
+        const db = getDB();
+        const newFile = {
+            id: Date.now(),
+            name: originalName,
+            url: `${req.protocol}://${req.get('host')}/uploads/${fileName}`,
+            type: req.file.mimetype, // Сохраняем тип (video/mp4, audio/mpeg и т.д.)
+            date: new Date().toISOString()
+        };
+        db.files.push(newFile);
+        saveDB(db);
         
-        if (!dbData.files) dbData.files = [];
-        dbData.files.push(req.file.filename); // Сохраняем имя файла с правильным расширением
-        
-        fs.writeFileSync(DB_FILE, JSON.stringify(dbData));
-        
-        res.send("Файл успешно отправлен в канал и появился на сайте!");
+        res.send("Файл успешно загружен!");
       } catch (err) {
-        console.error("Ошибка при отправке в ТГ:", err);
-        res.status(500).send("Ошибка при загрузке.");
+        console.error("Upload error:", err);
+        res.status(500).send("Server error.");
       }
     });
 
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Сервер KRN SYSTEM запущен на порту ${PORT}`);
-    });
+    app.listen(PORT, () => console.log(`Backend link: http://localhost:${PORT}`));
 
   } catch (err) {
-    console.error("Ошибка авторизации:", err.message || err);
+    console.error("Start error:", err);
   }
 }
 
