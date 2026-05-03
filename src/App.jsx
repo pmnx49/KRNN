@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 
 const RENDER_HOST = 'krn-0s8n.onrender.com'; 
 
-// SVG-иконка лапки (будет работать всегда без внешних ссылок)
+// Чистая лапка без фона (SVG)
 const PawIcon = ({ color }) => (
-  <svg width="40" height="40" viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="14.5" r="4.5" />
-    <circle cx="6.5" cy="9.5" r="2.5" />
-    <circle cx="10" cy="6.5" r="2.5" />
-    <circle cx="14" cy="6.5" r="2.5" />
-    <circle cx="17.5" cy="9.5" r="2.5" />
+  <svg width="24" height="24" viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 11C14.2091 11 16 12.7909 16 15C16 17.2091 14.2091 19 12 19C9.79086 19 8 17.2091 8 15C8 12.7909 9.79086 11 12 11Z" />
+    <circle cx="7" cy="8" r="2.5" />
+    <circle cx="10.5" cy="5.5" r="2.5" />
+    <circle cx="14.5" cy="5.5" r="2.5" />
+    <circle cx="18" cy="8" r="2.5" />
   </svg>
 );
 
@@ -69,7 +69,7 @@ function App() {
   const handleLogin = () => {
     if (passInput === settings.adminPass) setRole('admin');
     else if (passInput === settings.friendPass) setRole('friend');
-    else alert('ACCESS DENIED');
+    else alert('DENIED');
   };
 
   const saveGlobalSettings = async (newSettings) => {
@@ -92,7 +92,7 @@ function App() {
       if (action === 'toggle-like') setLikedFiles(data);
       if (action === 'toggle-archive') setArchivedFiles(data);
       fetchData();
-    } catch (e) { console.error("Action error", e); }
+    } catch (e) { console.error(e); }
   };
 
   const handleUpload = async (e) => {
@@ -130,9 +130,9 @@ function App() {
         <h1 style={{ color: settings.accent }}>KRN SYSTEM</h1>
         <div className="login-form">
           <input type="password" placeholder="CODE" onChange={e => setPassInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-          <button style={{ background: settings.accent }} onClick={handleLogin}>INIT</button>
+          <button style={{ background: settings.accent }} onClick={handleLogin}>START</button>
         </div>
-        <div className="guest-btn" onClick={() => setRole('guest')}>GUEST ACCESS</div>
+        <div className="guest-btn" onClick={() => setRole('guest')}>GUEST</div>
       </div>
       <style>{CSS(settings)}</style>
     </div>
@@ -149,10 +149,7 @@ function App() {
             <div className="pill" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${settings.accent}`, color: settings.accent }}>{sortOrder}</div>
             <div className="prof" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${settings.accent}`, backgroundImage: `url(${settings.avatar})`, backgroundSize:'cover' }}>{!settings.avatar && '⚙️'}</div>
             {role === 'admin' && (
-              <label className="add" style={{ background: settings.accent }}>
-                {viewMode === 'favorites' ? '🔒' : '+'}
-                <input type="file" multiple onChange={handleUpload} hidden />
-              </label>
+              <label className="add" style={{ background: settings.accent }}>{viewMode === 'favorites' ? '🔒' : '+'}<input type="file" multiple onChange={handleUpload} hidden /></label>
             )}
           </div>
         </header>
@@ -179,7 +176,7 @@ function App() {
       </div>
 
       <main className="feed">
-        {loading && <div className="loader" style={{color: settings.accent}}>UPLOADING...</div>}
+        {loading && <div className="loader" style={{color: settings.accent}}>LOADING...</div>}
         {posts.map((post, idx) => {
           let items = post.items.filter(f => {
             const isLiked = likedFiles.includes(f);
@@ -201,7 +198,7 @@ function App() {
                     {role === 'admin' && (
                       <div className="admin-actions">
                          <div className={`paw-container ${likedFiles.includes(file) ? 'active' : ''}`} onClick={() => toggleAction(file, 'toggle-like')}>
-                            <PawIcon color={likedFiles.includes(file) ? settings.accent : '#444'} />
+                            <PawIcon color={likedFiles.includes(file) ? settings.accent : '#555'} />
                          </div>
                          <div className="arc-btn" onClick={() => toggleAction(file, 'toggle-archive')} style={{ border: `1px solid ${settings.accent}` }}>
                            {archivedFiles.includes(file) ? '♻️' : '🗑️'}
@@ -216,7 +213,7 @@ function App() {
         })}
       </main>
 
-      {showSettings && role === 'admin' && (
+      {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ border: `1px solid ${settings.accent}` }}>
             <h3>SYSTEM</h3>
@@ -227,7 +224,7 @@ function App() {
               <label>Accent <input type="color" value={settings.accent} onChange={e => setSettings({...settings, accent: e.target.value})} /></label>
               <label>BG <input type="color" value={settings.bg} onChange={e => setSettings({...settings, bg: e.target.value})} /></label>
             </div>
-            <button style={{ background: settings.accent }} onClick={() => {saveGlobalSettings(settings); setShowSettings(false)}}>SAVE FOR ALL</button>
+            <button style={{ background: settings.accent }} onClick={() => {saveGlobalSettings(settings); setShowSettings(false)}}>SAVE</button>
           </div>
         </div>
       )}
@@ -240,57 +237,44 @@ function App() {
 const CSS = (u) => `
   * { box-sizing: border-box; transition: 0.3s; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow: hidden; }
-  
   .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
-
-  .login-page { justify-content: center; align-items: center; }
-  .login-card { width: 80%; max-width: 280px; padding: 30px; background: rgba(0,0,0,0.9); border-radius: 20px; text-align: center; backdrop-filter: blur(10px); }
-  .login-card h1 { margin-bottom: 20px; font-size: 18px; letter-spacing: 2px; }
-  .login-form { display: flex; gap: 8px; flex-direction: column; }
-  .login-card input { padding: 12px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; text-align: center; }
-  .login-card button { padding: 12px; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; }
-
   .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); width: 100%; }
-  .navbar { display: flex; justify-content: space-between; padding: 8px 15px; align-items: center; }
-  .nav-right { display: flex; gap: 10px; align-items: center; }
-  
-  .prof { width: 32px; height: 32px; border-radius: 8px; background: #111; display: flex; align-items: center; justify-content: center; }
-  .add { padding: 6px 12px; border-radius: 8px; font-size: 16px; font-weight: bold; color: #fff; cursor: pointer; }
-  .pill { font-size: 8px; padding: 4px 8px; border-radius: 6px; font-weight: bold; text-transform: uppercase; }
-
+  .navbar { display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; }
+  .nav-right { display: flex; gap: 8px; align-items: center; }
+  .prof, .add { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .pill { font-size: 9px; padding: 5px 8px; border-radius: 8px; font-weight: bold; text-transform: uppercase; }
   .tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .tabs div { flex: 1; padding: 12px; text-align: center; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
-  .tab-paw-box svg { width: 15px; height: 15px; }
-
+  .tab-paw-box svg { width: 16px; height: 16px; }
   .feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
-  .card { width: 94%; background: rgba(0,0,0,0.7); border-radius: 18px; overflow: hidden; margin-bottom: 20px; backdrop-filter: blur(10px); }
+  .card { width: 94%; background: rgba(0,0,0,0.6); border-radius: 20px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(10px); }
   .card-top { padding: 10px 15px; font-size: 10px; opacity: 0.5; }
   .scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .slide { min-width: 100%; position: relative; scroll-snap-align: start; }
   .m-el { width: 100%; display: block; min-height: 250px; object-fit: cover; }
-
-  .admin-actions { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 8px; align-items: center; }
-  .paw-container { cursor: pointer; }
-  .paw-container.active svg { animation: paw-pulse 1.5s infinite; filter: drop-shadow(0 0 5px ${u.accent}); }
   
-  @keyframes paw-pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-  }
-
-  .arc-btn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.6); cursor: pointer; font-size: 14px; }
+  /* Позиционирование кнопок в карточке */
+  .admin-actions { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px; align-items: center; z-index: 10; }
+  .paw-container { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(0,0,0,0.3); border-radius: 50%; }
+  .active svg { animation: paw-pulse 1.5s infinite; filter: drop-shadow(0 0 5px ${u.accent}); }
+  @keyframes paw-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  .arc-btn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.4); cursor: pointer; font-size: 14px; }
   
-  .sakura-box { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
-  .petal { position: absolute; top: -100px; animation: fall linear infinite; }
-  @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
-
-  .fav-filters { display: flex; gap: 6px; padding: 10px; overflow-x: auto; }
-  .fav-filters span { padding: 4px 10px; border-radius: 12px; font-size: 8px; font-weight: bold; border: 1px solid; text-transform: uppercase; }
+  .a-box { padding: 40px 20px; background: #050505; display: flex; justify-content: center; border-radius: 15px; margin: 10px; }
+  audio { width: 100%; filter: invert(1) hue-rotate(180deg); opacity: 0.6; }
+  
+  .login-page { justify-content: center; align-items: center; height: 100vh; }
+  .login-card { width: 280px; padding: 30px; background: #000; border-radius: 20px; text-align: center; }
+  .login-form { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .login-card input { padding: 12px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; text-align: center; }
+  .login-card button { padding: 12px; border: none; border-radius: 8px; color: #fff; font-weight: bold; }
+  .guest-btn { margin-top: 15px; font-size: 10px; opacity: 0.4; cursor: pointer; }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; }
   .modal-card { background: #000; width: 280px; padding: 25px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px; }
-  .modal-card input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #222; background: #000; color: #fff; font-size: 12px; }
+  .modal-card input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #222; background: #000; color: #fff; font-size: 12px; }
+  .zoom { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
+  .zoom img { max-width: 100%; max-height: 100%; }
 `;
 
 export default App;
