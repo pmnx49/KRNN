@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const RENDER_HOST = 'krn-0s8n.onrender.com'; 
+const RENDER_HOST = 'localhost:3000';
 
 // SVG Кошачья лапка
 const PawIcon = ({ color, size = 20 }) => (
@@ -31,7 +31,9 @@ function App() {
     if (host === 'localhost' || host === '127.0.0.1') return `http://localhost:3000`;
     return `https://${RENDER_HOST}`;
   };
-  const SERVER_URL = getBaseUrl();
+ // Пока что поставь ссылку-заглушку. 
+// Когда загрузишь сервер на Render, вставишь сюда реальную ссылку, которую он тебе даст!
+const SERVER_URL = 'https://твой-будущий-сервер.onrender.com';
 
   const [settings, setSettings] = useState({
     name: 'NONA', avatar: '', bg: '#050505', accent: '#ff2d55', 
@@ -106,17 +108,26 @@ function App() {
   };
 
   const handleUpload = async (e) => {
-    setLoading(true);
-    const fd = new FormData();
-    for (let f of e.target.files) fd.append('files', f);
+  setLoading(true);
+  const fd = new FormData();
+  
+  // ИСПРАВЛЕНО: 'file' без буквы 's' на конце!
+  for (let f of e.target.files) fd.append('file', f); 
+
+  try {
     const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
-    const uploaded = await res.json();
-    if (viewMode === 'favorites' && Array.isArray(uploaded)) {
-      for (let f of uploaded) await toggleAction(f, 'toggle-like');
-    }
-    fetchData();
+    
+    // ИСПРАВЛЕНО: читаем как текст, а не как json!
+    const resultText = await res.text(); 
+    console.log("Ответ от сервера:", resultText);
+
+    fetchData(); // Обновляем данные на сайте
+  } catch (error) {
+    console.error("Сбой при отправке фото:", error);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   const getFileType = (file) => {
     const ext = file.split('.').pop().toLowerCase();
