@@ -20,7 +20,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [viewMode, setViewMode] = useState('all'); 
-  const [favFilter, setFavFilter] = useState('all'); 
   const [sortOrder, setSortOrder] = useState('new');
   const [zoomImg, setZoomImg] = useState(null);
 
@@ -31,17 +30,8 @@ function App() {
     adminPass: 'Ll653211', friendPass: '777', wallPaper: ''
   });
 
-  const [paws] = useState(() =>
-    [...Array(12)].map(() => ({
-      left: Math.random() * 100, delay: Math.random() * 10, 
-      duration: 8 + Math.random() * 10, size: 15 + Math.random() * 15,
-      rotate: Math.random() * 360
-    }))
-  );
-
   const fetchData = async () => {
     try {
-      // ИСПРАВЛЕНО 1: Добавили ?t=... чтобы сбрасывать кэш браузера
       const res = await fetch(`${SERVER_URL}/files?t=${Date.now()}`);
       const data = await res.json();
       
@@ -49,10 +39,7 @@ function App() {
       setLikedFiles(data.likes || []);
       setArchivedFiles(data.archive || []);
       
-      // ИСПРАВЛЕНО 2: Защита форматов
       let rawFiles = Array.isArray(data) ? data : (data.files || []);
-      
-      // Оставляем только правильные новые файлы-объекты
       let validFiles = rawFiles.filter(f => typeof f === 'object' && f !== null && f.id);
       
       validFiles.sort((a, b) => (sortOrder === 'new' ? b.id - a.id : a.id - b.id));
@@ -61,7 +48,8 @@ function App() {
       validFiles.forEach(f => {
         const ts = f.id; 
         const last = grouped[grouped.length - 1];
-        if (last && Math.abs(last.time - ts) < 2000) last.items.push(f);
+        // Группируем файлы, загруженные в интервале 5 секунд
+        if (last && Math.abs(last.time - ts) < 5000) last.items.push(f);
         else grouped.push({ time: ts, items: [f] });
       });
       setPosts(grouped);
@@ -78,19 +66,24 @@ function App() {
     else alert('ACCESS DENIED');
   };
 
-  const saveGlobalSettings = async (newSettings) => {
-    setSettings(newSettings);
-    // Настройки пока сохраняются локально, так как сервер на Render
-    setShowSettings(false);
-  };
-
   const toggleAction = async (fileName, action) => {
-    // Временно меняем визуально, так как сервер на Render пока не имеет этих команд
+    // Мгновенное обновление UI
+    if (action === 'toggle-like') {
+       setLikedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
+    }
     if (action === 'toggle-archive') {
        setArchivedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
     }
-    if (action === 'toggle-like') {
-       setLikedFiles(prev => prev.includes(fileName) ? prev.filter(x => x !== fileName) : [...prev, fileName]);
+
+    // Сохранение на сервер
+    try {
+      await fetch(`${SERVER_URL}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, action })
+      });
+    } catch (e) {
+      console.error("Ошибка сохранения на бэкенд:", e);
     }
   };
 
@@ -98,45 +91,38 @@ function App() {
     if (!e.target.files || e.target.files.length === 0) return;
     setLoading(true);
     const fd = new FormData();
-    
     for (let f of e.target.files) fd.append('file', f); 
 
     try {
       const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
-      if (res.ok) {
-        await fetchData(); // ИСПРАВЛЕНО: Ждем, пока лента обновится
-      }
+      if (res.ok) await fetchData();
     } catch (error) {
-      console.error("Сбой при отправке фото:", error);
+      console.error("Сбой при отправке:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const getFileType = (fileObj) => {
-    if (fileObj.type && fileObj.type.startsWith('video')) return 'video';
-    if (fileObj.type && fileObj.type.startsWith('audio')) return 'audio';
-    const ext = fileObj.name ? fileObj.name.split('.').pop().toLowerCase() : '';
-    if (['mp4', 'webm', 'mov'].includes(ext)) return 'video';
-    if (['mp3', 'wav', 'm4a'].includes(ext)) return 'audio';
+    const name = fileObj.name || '';
+    if (name.match(/\.(mp4|webm|mov)$/i)) return 'video';
+    if (name.match(/\.(mp3|wav|m4a)$/i)) return 'audio';
     return 'photo';
   };
 
   const MediaItem = ({ file }) => {
-    const url = file.url; 
     const type = getFileType(file);
-    if (type === 'video') return <video src={url} controls className="m-el" playsInline />;
-    if (type === 'audio') return <div className="a-box"><audio src={url} controls /></div>;
-    return <img src={url} className="m-el" alt="" onClick={() => setZoomImg(url)} />;
+    if (type === 'video') return <video src={file.url} controls className="m-el" playsInline />;
+    if (type === 'audio') return <div className="a-box"><audio src={file.url} controls /></div>;
+    return <img src={file.url} className="m-el" alt="" onClick={() => setZoomImg(file.url)} />;
   };
 
   const dynamicBg = settings.wallPaper 
-    ? { backgroundImage: `url(${settings.wallPaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
+    ? { backgroundImage: `url(${settings.wallPaper})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } 
     : { background: settings.bg };
 
   if (!role) return (
     <div className="layout login-page" style={dynamicBg}>
-      <div className="paw-rain">{paws.map((p, i) => <div key={i} className="falling-paw" style={{left:p.left+'vw', animationDelay:p.delay+'s', animationDuration:p.duration+'s'}}><PawIcon color={settings.accent+'40'} size={p.size} /></div>)}</div>
       <div className="login-card" style={{ border: `2px solid ${settings.accent}` }}>
         <h1 style={{ color: settings.accent }}>KRN SYSTEM</h1>
         <div className="login-form">
@@ -150,21 +136,18 @@ function App() {
   );
 
   return (
-    <div className="layout" style={{ ...dynamicBg, backgroundAttachment: 'fixed' }}>
-      <div className="paw-rain">{paws.map((p, i) => <div key={i} className="falling-paw" style={{left:p.left+'vw', animationDelay:p.delay+'s', animationDuration:p.duration+'s'}}><PawIcon color={settings.accent+'20'} size={p.size} /></div>)}</div>
-      
+    <div className="layout" style={dynamicBg}>
       <div className="sticky-header">
         <header className="navbar">
           <div className="logo" onClick={() => setRole(null)}>⛩️</div>
           <div className="nav-controls">
             <div className="pill-btn" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${settings.accent}`, color: settings.accent }}>{sortOrder}</div>
-            <div className="circle-btn" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${settings.accent}`, backgroundImage: `url(${settings.avatar})`, backgroundSize:'cover' }}>{!settings.avatar && '⚙️'}</div>
             {role === 'admin' && (
-              <label className="circle-btn add-btn" style={{ background: settings.accent }}>
-                {viewMode === 'favorites' ? '🔒' : '+'}
-                <input type="file" multiple onChange={handleUpload} hidden />
+              <label className="circle-btn" style={{ background: settings.accent }}>
+                + <input type="file" multiple onChange={handleUpload} hidden />
               </label>
             )}
+            <div className="circle-btn" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${settings.accent}`, backgroundImage: `url(${settings.avatar})`, backgroundSize:'cover' }}>{!settings.avatar && '⚙️'}</div>
           </div>
         </header>
 
@@ -179,38 +162,33 @@ function App() {
              <div onClick={() => setViewMode('archive')} className={viewMode === 'archive' ? 'active' : ''} style={{ '--clr': settings.accent }}>ARCHIVE</div>
           )}
         </nav>
-
-        {viewMode === 'favorites' && (
-          <div className="filter-bar no-s">
-            {['all', 'photo', 'video', 'audio'].map(f => (
-              <span key={f} onClick={() => setFavFilter(f)} style={{ 
-                background: favFilter === f ? settings.accent : 'transparent', 
-                border: `1px solid ${settings.accent}`,
-                color: favFilter === f ? '#fff' : settings.accent 
-              }}>{f}</span>
-            ))}
-          </div>
-        )}
       </div>
 
       <main className="content-feed">
         {loading && <div className="status-msg" style={{color: settings.accent}}>UPLOADING...</div>}
         {posts.map((post, idx) => {
-          let items = post.items.filter(f => {
+          let visibleItems = post.items.filter(f => {
             const isLiked = likedFiles.includes(f.name);
             const isArchived = archivedFiles.includes(f.name);
+            
             if (viewMode === 'archive') return isArchived;
             if (isArchived) return false;
-            if (viewMode === 'favorites') return isLiked && (favFilter === 'all' || getFileType(f) === favFilter);
-            return !isLiked;
+            
+            if (viewMode === 'favorites') return isLiked;
+            
+            // Если гость - скрываем лайкнутые (приватные)
+            if (role === 'guest' && isLiked) return false;
+            
+            return true;
           });
-          if (items.length === 0) return null;
+          
+          if (visibleItems.length === 0) return null;
 
           return (
             <div key={idx} className="post-card" style={{ border: `1px solid ${settings.accent}20` }}>
-              <div className="card-user"><b>{settings.name}</b></div>
+              <div className="card-user"><b>{settings.name}</b> • {visibleItems.length} items</div>
               <div className="media-scroll no-s">
-                {items.map((file, i) => (
+                {visibleItems.map((file, i) => (
                   <div key={i} className="media-slide">
                     <MediaItem file={file} />
                     {role === 'admin' && (
@@ -242,7 +220,7 @@ function App() {
               <label>Accent <input type="color" value={settings.accent} onChange={e => setSettings({...settings, accent: e.target.value})} /></label>
               <label>BG <input type="color" value={settings.bg} onChange={e => setSettings({...settings, bg: e.target.value})} /></label>
             </div>
-            <button style={{ background: settings.accent }} onClick={() => {saveGlobalSettings(settings); setShowSettings(false)}}>APPLY GLOBAL</button>
+            <button style={{ background: settings.accent }} onClick={() => setShowSettings(false)}>CLOSE</button>
           </div>
         </div>
       )}
@@ -254,14 +232,11 @@ function App() {
 
 const CSS = (u) => `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow: hidden; }
-  .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
+  body { margin: 0; background: #000; font-family: -apple-system, sans-serif; color: #fff; overflow-x: hidden; }
+  .layout { min-height: 100vh; display: flex; flex-direction: column; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
-  .paw-rain { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
-  .falling-paw { position: absolute; top: -50px; animation: fall-anim linear infinite; opacity: 0.6; }
-  @keyframes fall-anim { to { transform: translateY(110vh) rotate(360deg); } }
   .login-page { justify-content: center; align-items: center; }
-  .login-card { width: 280px; padding: 35px; background: rgba(0,0,0,0.85); border-radius: 25px; text-align: center; backdrop-filter: blur(15px); z-index: 10; }
+  .login-card { width: 280px; padding: 35px; background: rgba(0,0,0,0.85); border-radius: 25px; text-align: center; backdrop-filter: blur(15px); }
   .login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
   .login-card input { padding: 12px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; }
   .login-card button { padding: 12px; border-radius: 10px; color: #fff; font-weight: bold; border: none; cursor: pointer; }
@@ -269,26 +244,25 @@ const CSS = (u) => `
   .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .navbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; }
   .nav-controls { display: flex; gap: 10px; align-items: center; }
-  .circle-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .circle-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); }
   .pill-btn { font-size: 10px; padding: 6px 12px; border-radius: 20px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
   .main-tabs { display: flex; width: 100%; }
   .main-tabs div { flex: 1; padding: 16px; text-align: center; font-size: 11px; font-weight: 900; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .main-tabs div.active { color: var(--clr); border-bottom: 2px solid var(--clr); }
-  .filter-bar { display: flex; gap: 10px; padding: 12px 18px; overflow-x: auto; }
-  .filter-bar span { padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: bold; border: 1px solid; text-transform: uppercase; flex-shrink: 0; }
-  .content-feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
-  .post-card { width: 94%; background: rgba(0,0,0,0.6); border-radius: 22px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(10px); }
+  .content-feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; }
+  .post-card { width: 94%; max-width: 500px; background: rgba(0,0,0,0.6); border-radius: 22px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(10px); }
   .card-user { padding: 12px 18px; font-size: 12px; opacity: 0.6; }
+  
+  /* Слайдер */
   .media-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .media-slide { min-width: 100%; position: relative; scroll-snap-align: start; }
-  .m-el { width: 100%; display: block; min-height: 280px; object-fit: cover; }
+  .m-el { width: 100%; display: block; min-height: 300px; object-fit: contain; background: #000; }
+  
   .floating-actions { position: absolute; bottom: 18px; right: 18px; display: flex; gap: 12px; align-items: center; z-index: 10; }
-  .action-paw { cursor: pointer; transition: 0.2s; }
-  .action-paw.active { animation: paw-jump 1.5s infinite; filter: drop-shadow(0 0 8px ${u.accent}); }
-  @keyframes paw-jump { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
-  .action-trash { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.4); font-size: 16px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
+  .action-paw { cursor: pointer; transition: 0.2s; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+  .action-paw.active { transform: scale(1.1); filter: drop-shadow(0 0 8px ${u.accent}); }
+  .action-trash { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 16px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
   .a-box { padding: 45px 20px; background: #080808; display: flex; justify-content: center; }
-  audio { width: 90%; filter: invert(1) hue-rotate(180deg); opacity: 0.6; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
   .modal { background: #000; width: 300px; padding: 25px; border-radius: 24px; display: flex; flex-direction: column; gap: 12px; }
   .modal input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; font-size: 13px; }
