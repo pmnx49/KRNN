@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+// ТВОЯ ССЫЛКА ОТ RENDER
 const RENDER_HOST = 'krn-0s8n.onrender.com'; 
 
 function App() {
@@ -74,7 +75,6 @@ function App() {
     setLikedFiles(newLikes);
   };
 
-  // НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ
   const handleUpload = async (e) => {
     setLoading(true);
     const files = e.target.files;
@@ -83,9 +83,8 @@ function App() {
 
     try {
       const res = await fetch(`${SERVER_URL}/upload`, { method: 'POST', body: fd });
-      const uploadedFiles = await res.json(); // Предполагаем, что сервер возвращает список имен новых файлов
+      const uploadedFiles = await res.json(); 
       
-      // Если мы в режиме PRIVATE, автоматически "лайкаем" новые файлы
       if (viewMode === 'favorites' && Array.isArray(uploadedFiles)) {
         for (let fileName of uploadedFiles) {
           await toggleLike(fileName);
@@ -131,47 +130,51 @@ function App() {
     <div className="layout" style={{ background: user.bg }}>
       <div className="sakura-box">{petals.map((p, i) => <div key={i} className="petal" style={{left:p.left+'vw', animationDelay:p.delay+'s', animationDuration:p.duration+'s', fontSize:p.size+'px'}}>🌸</div>)}</div>
       
-      <header className="navbar" style={{ borderBottom: `2px solid ${user.accent}` }}>
-        <div className="logo" onClick={() => setRole(null)}>⛩️</div>
-        <div className="nav-right">
-          <div className="pill" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${user.accent}`, color: user.accent }}>{sortOrder === 'new' ? 'NEW' : 'OLD'}</div>
-          <div className="prof" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${user.accent}`, backgroundImage: `url(${user.avatar})`, backgroundSize:'cover' }}>{!user.avatar && '⚙️'}</div>
-          {role === 'admin' && (
-            <label className="add" style={{ background: user.accent }}>
-              {viewMode === 'favorites' ? '🔒+' : '+'}
-              <input type="file" multiple onChange={handleUpload} hidden />
-            </label>
+      <div className="sticky-top">
+        <header className="navbar" style={{ borderBottom: `1px solid ${user.accent}40` }}>
+          <div className="logo" onClick={() => setRole(null)}>⛩️</div>
+          <div className="nav-right">
+            <div className="pill" onClick={() => setSortOrder(sortOrder === 'new' ? 'old' : 'new')} style={{ border: `1px solid ${user.accent}`, color: user.accent }}>
+              {sortOrder === 'new' ? 'NEW' : 'OLD'}
+            </div>
+            <div className="prof" onClick={() => setShowSettings(!showSettings)} style={{ border: `1px solid ${user.accent}`, backgroundImage: `url(${user.avatar})`, backgroundSize:'cover' }}>
+              {!user.avatar && '⚙️'}
+            </div>
+            {role === 'admin' && (
+              <label className="add" style={{ background: user.accent }}>
+                {viewMode === 'favorites' ? '🔒+' : '+'}
+                <input type="file" multiple onChange={handleUpload} hidden />
+              </label>
+            )}
+          </div>
+        </header>
+
+        <div className="tabs">
+          <div onClick={() => setViewMode('all')} style={{ color: viewMode === 'all' ? user.accent : '#555', borderBottom: viewMode === 'all' ? `2px solid ${user.accent}` : 'none' }}>STREAM</div>
+          {(role === 'admin' || role === 'friend') && (
+            <div onClick={() => setViewMode('favorites')} style={{ color: viewMode === 'favorites' ? user.accent : '#555', borderBottom: viewMode === 'favorites' ? `2px solid ${user.accent}` : 'none' }}>PRIVATE ❤️</div>
           )}
         </div>
-      </header>
 
-      <div className="tabs">
-        <div onClick={() => setViewMode('all')} style={{ color: viewMode === 'all' ? user.accent : '#555', borderBottom: viewMode === 'all' ? `3px solid ${user.accent}` : 'none' }}>STREAM</div>
-        {(role === 'admin' || role === 'friend') && (
-          <div onClick={() => setViewMode('favorites')} style={{ color: viewMode === 'favorites' ? user.accent : '#555', borderBottom: viewMode === 'favorites' ? `3px solid ${user.accent}` : 'none' }}>PRIVATE ❤️</div>
+        {viewMode === 'favorites' && (
+          <div className="fav-filters no-s">
+            {['all', 'photo', 'video', 'audio'].map(f => (
+              <span key={f} onClick={() => setFavFilter(f)} style={{ background: favFilter === f ? user.accent : 'transparent', border: `1px solid ${user.accent}`, color: favFilter === f ? '#fff' : user.accent }}>
+                {f.toUpperCase()}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      {viewMode === 'favorites' && (
-        <div className="fav-filters">
-          {['all', 'photo', 'video', 'audio'].map(f => (
-            <span key={f} onClick={() => setFavFilter(f)} style={{ background: favFilter === f ? user.accent : 'transparent', border: `1px solid ${user.accent}` }}>
-              {f.toUpperCase()}
-            </span>
-          ))}
-        </div>
-      )}
-
       <main className="feed">
-        {loading && <div className="loader" style={{color: user.accent}}>PROCESSING...</div>}
+        {loading && <div className="loader" style={{color: user.accent}}>UPLOADING...</div>}
         {posts.map((post, idx) => {
           let items = post.items.filter(f => {
             const isLiked = likedFiles.includes(f);
             if (viewMode === 'favorites') {
-              const typeMatch = favFilter === 'all' || getFileType(f) === favFilter;
-              return isLiked && typeMatch;
+              return isLiked && (favFilter === 'all' || getFileType(f) === favFilter);
             }
-            // ВАЖНО: В обычном STREAM скрываем всё, что лайкнуто (избранное)
             return !isLiked;
           });
 
@@ -196,8 +199,7 @@ function App() {
           );
         })}
       </main>
-      
-      {/* Остальной код настроек и стилей остается таким же */}
+
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ border: `1px solid ${user.accent}` }}>
@@ -205,8 +207,8 @@ function App() {
             <input type="text" placeholder="Name" value={user.name} onChange={e => setUser({...user, name: e.target.value})} />
             <input type="text" placeholder="Avatar URL" value={user.avatar} onChange={e => setUser({...user, avatar: e.target.value})} />
             <div className="colors">
-              <label>Accent: <input type="color" value={user.accent} onChange={e => setUser({...user, accent: e.target.value})} /></label>
-              <label>BG: <input type="color" value={user.bg} onChange={e => setUser({...user, bg: e.target.value})} /></label>
+              <label>Accent <input type="color" value={user.accent} onChange={e => setUser({...user, accent: e.target.value})} /></label>
+              <label>BG <input type="color" value={user.bg} onChange={e => setUser({...user, bg: e.target.value})} /></label>
             </div>
             <button style={{ background: user.accent }} onClick={() => setShowSettings(false)}>SAVE</button>
           </div>
@@ -219,41 +221,62 @@ function App() {
 }
 
 const CSS = (u) => `
-  /* Твои стили из прошлого сообщения */
-  * { box-sizing: border-box; transition: 0.3s; }
-  body { margin: 0; background: #000; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: #fff; }
-  .layout { height: 100vh; width: 100vw; overflow-y: auto; overflow-x: hidden; position: relative; display: flex; flex-direction: column; align-items: center; }
-  .login-page { justify-content: center; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: 0.2s; }
+  body { margin: 0; background: #000; font-family: -apple-system, system-ui, sans-serif; color: #fff; overflow: hidden; }
+  
+  .layout { height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
   .no-s::-webkit-scrollbar { display: none; }
+  
+  .sticky-top { position: sticky; top: 0; z-index: 100; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  
+  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; }
+  .nav-right { display: flex; gap: 8px; align-items: center; }
+  
+  .logo { font-size: 20px; cursor: pointer; }
+  .pill { font-size: 9px; padding: 5px 10px; border-radius: 10px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+  .prof { width: 34px; height: 34px; border-radius: 10px; background: #111; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
+  .add { padding: 8px 14px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
+
+  .tabs { display: flex; }
+  .tabs div { flex: 1; padding: 14px; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }
+
+  .fav-filters { display: flex; gap: 8px; padding: 12px 15px; overflow-x: auto; white-space: nowrap; }
+  .fav-filters span { padding: 6px 14px; border-radius: 18px; font-size: 9px; font-weight: bold; flex-shrink: 0; cursor: pointer; }
+
   .sakura-box { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   .petal { position: absolute; top: -100px; animation: fall linear infinite; }
   @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
-  .login-card { width: 90%; max-width: 320px; padding: 40px; background: rgba(0,0,0,0.9); border-radius: 30px; text-align: center; z-index: 10; backdrop-filter: blur(10px); }
-  .login-card input { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; font-size: 16px; }
-  .login-card button { width: 100%; padding: 12px; border: none; border-radius: 10px; color: #fff; font-weight: bold; cursor: pointer; letter-spacing: 2px; }
-  .navbar { position: sticky; top: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); padding: 12px 20px; width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
-  .nav-right { display: flex; gap: 12px; align-items: center; }
-  .prof { width: 38px; height: 38px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; background-color: #111; border: 1px solid #222; }
-  .add { padding: 8px 12px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; cursor: pointer; }
-  .tabs { width: 100%; max-width: 800px; display: flex; justify-content: center; background: rgba(0,0,0,0.3); }
-  .tabs div { flex: 1; padding: 18px; cursor: pointer; text-align: center; font-size: 12px; letter-spacing: 1px; font-weight: 800; }
-  .fav-filters { display: flex; gap: 10px; padding: 15px; width: 100%; max-width: 600px; justify-content: center; overflow-x: auto; }
-  .fav-filters span { padding: 6px 15px; border-radius: 20px; font-size: 10px; font-weight: bold; cursor: pointer; white-space: nowrap; }
-  .feed { width: 100%; max-width: 600px; padding: 10px 0; z-index: 5; }
-  .card { width: 95%; background: rgba(255,255,255,0.02); border-radius: 25px; overflow: hidden; margin: 0 auto 25px auto; backdrop-filter: blur(5px); }
-  .card-top { padding: 15px 20px; font-size: 13px; letter-spacing: 1px; }
+
+  .feed { flex: 1; padding: 15px 0; display: flex; flex-direction: column; align-items: center; z-index: 5; }
+  .card { width: 94%; background: rgba(255,255,255,0.03); border-radius: 24px; overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(5px); }
+  .card-top { padding: 12px 18px; font-size: 12px; font-weight: 600; }
+  
   .scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .slide { min-width: 100%; scroll-snap-align: start; position: relative; }
-  .m-el { width: 100%; display: block; min-height: 200px; object-fit: cover; }
-  .a-box { padding: 50px 20px; background: #0a0a0a; display: flex; justify-content: center; }
-  audio { filter: invert(1); width: 90%; opacity: 0.7; }
-  .like { position: absolute; bottom: 20px; right: 20px; font-size: 28px; cursor: pointer; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); z-index: 2; }
-  .loader { text-align: center; padding: 20px; font-weight: bold; font-size: 12px; animation: pulse 1s infinite; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-  .modal-card { background: #000; width: 90%; max-width: 320px; padding: 30px; border-radius: 30px; display: flex; flex-direction: column; gap: 15px; }
-  .modal-card input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #222; background: #0a0a0a; color: #fff; }
-  .zoom { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 4000; display: flex; align-items: center; justify-content: center; }
-  .zoom img { max-width: 95%; max-height: 90%; border-radius: 10px; }
+  .m-el { width: 100%; display: block; object-fit: cover; min-height: 250px; background: #000; cursor: pointer; }
+  
+  .a-box { padding: 50px 20px; background: #050505; display: flex; justify-content: center; }
+  audio { width: 100%; filter: invert(1) hue-rotate(180deg); opacity: 0.6; }
+
+  .like { position: absolute; bottom: 20px; right: 20px; font-size: 26px; cursor: pointer; filter: drop-shadow(0 0 8px rgba(0,0,0,0.4)); }
+
+  .login-page { justify-content: center; align-items: center; height: 100vh; }
+  .login-card { width: 290px; padding: 35px; background: #000; border-radius: 28px; text-align: center; z-index: 10; backdrop-filter: blur(10px); }
+  .login-card h1 { margin-bottom: 25px; font-size: 22px; letter-spacing: 2px; }
+  .login-card input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; text-align: center; font-size: 16px; }
+  .login-card button { width: 100%; padding: 12px; border: none; border-radius: 10px; color: #fff; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
+  .guest { margin-top: 20px; font-size: 10px; opacity: 0.4; cursor: pointer; text-decoration: underline; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(15px); }
+  .modal-card { background: #000; width: 85%; max-width: 300px; padding: 25px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; }
+  .modal-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #222; background: #000; color: #fff; font-size: 13px; }
+  .colors { display: flex; justify-content: space-between; font-size: 11px; align-items: center; }
+
+  .zoom { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; align-items: center; justify-content: center; }
+  .zoom img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  
+  .loader { padding: 30px; font-size: 11px; font-weight: bold; letter-spacing: 3px; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 `;
 
 export default App;
