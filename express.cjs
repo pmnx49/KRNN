@@ -1,4 +1,6 @@
 const express = require('express');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const cors = require('cors');
 const fs = require('fs');
@@ -8,57 +10,89 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const uploadDir = path.resolve(__dirname, 'uploads');
+// 1. НАСТРОЙКА CLOUDINARY (Вставь свои данные здесь)
+cloudinary.config({
+  cloud_name: 'ds3lsnurw',
+  api_key: '652628137193142',
+  api_secret: 'fRSkx4S9i7fPIHve9m5mQDLT0UU'
+});
+
+// 2. НАСТРОЙКА ХРАНИЛИЩА
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'krn_system', // папка в облаке
+    resource_type: 'auto', // автоматически определять (видео, фото или аудио)
+  },
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 2000 * 1024 * 1024 } // Лимит 2 ГБ
+});
+
+// Файлы для настроек, лайков и архива
+const settingsFile = path.resolve(__dirname, 'settings.json');
 const likesFile = path.resolve(__dirname, 'likes.json');
+const archiveFile = path.resolve(__dirname, 'archive.json');
 
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// Инициализация файлов, если их нет
+if (!fs.existsSync(settingsFile)) fs.writeFileSync(settingsFile, JSON.stringify({}));
 if (!fs.existsSync(likesFile)) fs.writeFileSync(likesFile, JSON.stringify([]));
+if (!fs.existsSync(archiveFile)) fs.writeFileSync(archiveFile, JSON.stringify([]));
 
-app.use('/uploads', express.static(uploadDir));
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
-    }
+// 3. ПУТЬ ДЛЯ ЗАГРУЗКИ
+app.post('/upload', upload.array('files'), (req, res) => {
+  // Возвращаем ссылки на загруженные файлы в облаке
+  const urls = req.files.map(file => file.path);
+  res.json(urls);
 });
-const upload = multer({ storage: storage });
 
-app.get('/files', (req, res) => {
-    fs.readdir(uploadDir, (err, files) => {
-        if (err) return res.status(500).json([]);
-        const sorted = files.sort((a, b) => b.split('-')[0] - a.split('-')[0]);
-        const likes = JSON.parse(fs.readFileSync(likesFile));
-        res.json({ files: sorted, likes: likes });
+// ПУТЬ ДЛЯ ПОЛУЧЕНИЯ ВСЕХ ФАЙЛОВ
+app.get('/files', async (req, res) => {
+  try {
+    const likes = JSON.parse(fs.readFileSync(likesFile));
+    const archive = JSON.parse(fs.readFileSync(archiveFile));
+    const settings = JSON.parse(fs.readFileSync(settingsFile));
+    
+    // Получаем список файлов напрямую из Cloudinary
+    const result = await cloudinary.api.resources({ 
+      type: 'upload', 
+      prefix: 'krn_system/',
+      max_results: 500 
     });
+    
+    // Преобразуем формат для фронтенда
+    const files = result.resources.map(r => r.secure_url);
+    
+    res.json({ files, likes, archive, settings });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// ПУТЬ ДЛЯ ОБНОВЛЕНИЯ НАСТРОЕК (Пароли, обои)
+app.post('/update-settings', (req, res) => {
+  fs.writeFileSync(settingsFile, JSON.stringify(req.body));
+  res.json({ status: 'ok' });
+});
+
+// ЛАЙКИ И АРХИВ
 app.post('/toggle-like', (req, res) => {
-    const { fileName } = req.body;
-    let likes = JSON.parse(fs.readFileSync(likesFile));
-    if (likes.includes(fileName)) {
-        likes = likes.filter(f => f !== fileName);
-    } else {
-        likes.push(fileName);
-    }
-    fs.writeFileSync(likesFile, JSON.stringify(likes));
-    res.json(likes);
+  let likes = JSON.parse(fs.readFileSync(likesFile));
+  const file = req.body.fileName;
+  likes = likes.includes(file) ? likes.filter(f => f !== file) : [...likes, file];
+  fs.writeFileSync(likesFile, JSON.stringify(likes));
+  res.json(likes);
 });
 
-app.post('/upload', upload.array('files', 20), (req, res) => res.json({ success: true }));
-
-app.delete('/delete/:name', (req, res) => {
-    const filePath = path.join(uploadDir, req.params.name);
-    if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        let likes = JSON.parse(fs.readFileSync(likesFile));
-        fs.writeFileSync(likesFile, JSON.stringify(likes.filter(f => f !== req.params.name)));
-        res.json({ message: 'OK' });
-    } else { res.status(404).send('Error'); }
+app.post('/toggle-archive', (req, res) => {
+  let arc = JSON.parse(fs.readFileSync(archiveFile));
+  const file = req.body.fileName;
+  arc = arc.includes(file) ? arc.filter(f => f !== file) : [...arc, file];
+  fs.writeFileSync(archiveFile, JSON.stringify(arc));
+  res.json(arc);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server started on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
